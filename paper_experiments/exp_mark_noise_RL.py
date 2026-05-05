@@ -332,7 +332,7 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
             "Critic_Grad_Norm": grad_norm[1].mean().item(),
             "Average_Reward_Tracker": loss[1].mean().item(),
             "Average_Value_Tracker": loss[2].mean().item(),
-            "KL": kl.item(),
+            "KL": kl,
             "Value_Loss": value_loss.mean().item(),
             "Policy_Loss": actor_loss.mean().item(),
             "Entropy": entropy.mean().item(),
