@@ -274,8 +274,59 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
         return ((actor_loss_v + critic_loss_v, av_reward, av_value), (optax.global_norm(actor_grads), optax.global_norm(critic_grads)), 
                 policy_state, critic_state, tracker_state, (value_loss, policy_loss, entropy, kl), observation, env_state, key, sample_counter)
 
-    # Main training loop remains same...
-    # [Rest of the training loop and wandb logging]
+    state, env_state = jit_reset(jax.random.split(reset_key, num_envs), env_params)
+    update_counter = 0
+    for i_episode in range(1, n_training_episodes + 1):
+        loss_key, reset_key, step_key = jax.random.split(key, 3)
+
+        if stopping_criterium(sample_counter):
+            break
+        
+        (
+            loss,
+            grad_norm,
+            policy_state,
+            critic_state,
+            tracker_state,
+            (value_loss, actor_loss, entropy, kl),
+            state,
+            env_state,
+            key,
+            sample_counter,
+        ) = _update_epoch(
+            policy_state,
+            critic_state,
+            tracker_state,
+            state,
+            env_state,
+            env_params,
+            loss_key,
+            step_key,
+            sample_counter,
+        )
+
+        scores_deque.append(env_state.returned_episode_returns)
+        lengths_deque.append(env_state.returned_episode_lengths)
+
+        update_counter += 1
+
+        wandb.log(
+            {
+                "Loss": loss[0].mean().item(),
+                "Actor_Grad_Norm": grad_norm[0].mean().item(),
+                "Critic_Grad_Norm": grad_norm[1].mean().item(),
+                "Average_Reward_Tracker": loss[1].mean().item(),
+                "Average_Value_Tracker": loss[2].mean().item(),
+                "KL": kl.mean().item(),
+                "Value_Loss": value_loss.mean().item(),
+                "Policy_Loss": actor_loss.mean().item(),
+                "Entropy": entropy.mean().item(),
+                "Step": i_episode,
+                "Episode_Return": np.mean(scores_deque),
+                "Episode_Length": np.mean(lengths_deque),
+                "env_samples": sample_counter
+            },
+        )
 
 @hydra.main(config_path=".", config_name="config_jet.yaml", version_base="1.2")
 def main(cfg: DictConfig) -> None:
