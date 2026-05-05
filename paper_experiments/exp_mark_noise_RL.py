@@ -24,6 +24,10 @@ from gymnax.environments import spaces
 from omegaconf import DictConfig, OmegaConf
 warnings.filterwarnings("ignore")
 
+import os
+import json
+from datetime import datetime
+
 class NavixGymnaxWrapper:
     def __init__(self, env_name):
         self._env = nx.make(env_name)
@@ -276,6 +280,18 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
 
     state, env_state = jit_reset(jax.random.split(reset_key, num_envs), env_params)
     update_counter = 0
+
+
+    # Логгирование в файл
+    now = datetime.now()
+    date_str = now.strftime("%Y-%m-%d")
+    time_str = now.strftime("%H-%M-%S")
+
+    dir_path = os.path.join("outputs", date_str, time_str)
+    os.makedirs(dir_path, exist_ok=True)
+
+    file_path = os.path.join(dir_path, "output.txt")
+    
     for i_episode in range(1, n_training_episodes + 1):
         loss_key, reset_key, step_key = jax.random.split(key, 3)
 
@@ -310,23 +326,25 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
 
         update_counter += 1
 
-        wandb.log(
-            {
-                "Loss": loss[0].mean().item(),
-                "Actor_Grad_Norm": grad_norm[0].mean().item(),
-                "Critic_Grad_Norm": grad_norm[1].mean().item(),
-                "Average_Reward_Tracker": loss[1].mean().item(),
-                "Average_Value_Tracker": loss[2].mean().item(),
-                "KL": kl.item(),
-                "Value_Loss": value_loss.mean().item(),
-                "Policy_Loss": actor_loss.mean().item(),
-                "Entropy": entropy.mean().item(),
-                "Step": i_episode,
-                "Episode_Return": np.mean(scores_deque),
-                "Episode_Length": np.mean(lengths_deque),
-                "env_samples": sample_counter
-            },
-        )
+        log_data = {
+            "Loss": loss[0].mean().item(),
+            "Actor_Grad_Norm": grad_norm[0].mean().item(),
+            "Critic_Grad_Norm": grad_norm[1].mean().item(),
+            "Average_Reward_Tracker": loss[1].mean().item(),
+            "Average_Value_Tracker": loss[2].mean().item(),
+            "KL": kl.item(),
+            "Value_Loss": value_loss.mean().item(),
+            "Policy_Loss": actor_loss.mean().item(),
+            "Entropy": entropy.mean().item(),
+            "Step": i_episode,
+            "Episode_Return": float(np.mean(scores_deque)),
+            "Episode_Length": float(np.mean(lengths_deque)),
+            "env_samples": sample_counter
+        }
+
+        # Write (append mode so you log every step)
+        with open(file_path, "a") as f:
+            f.write(json.dumps(log_data) + "\n")
 
 @hydra.main(config_path=".", config_name="config_jet.yaml", version_base="1.2")
 def main(cfg: DictConfig) -> None:
