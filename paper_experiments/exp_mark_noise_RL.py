@@ -86,10 +86,6 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
     scores_deque = deque(maxlen=100)
     lengths_deque = deque(maxlen=100)
 
-    step_print = 1
-    print(f" HIIIIIIIIII! STEP {step_print}")
-    step_print += 1
-
     total_samples: int = (
         int(total_samples)
         if total_samples is not None
@@ -110,14 +106,8 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
         action, log_prob = pi.sample_and_log_prob(seed=key)
 
         return action, log_prob
-
-    print(f" HIIIIIIIIII! STEP {step_print}")
-    step_print += 1
     
     act = _act_standard
-
-    print(f" HIIIIIIIIII! STEP {step_print}")
-    step_print += 1
 
     @jax.jit
     def value(critic_state, observations):
@@ -129,16 +119,8 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
     env, env_params = NavixGymnaxWrapper(env_name), None        
     env = LogWrapper(env)
 
-    print(f" HIIIIIIIIII! STEP {step_print}")
-    step_print += 1
-
     jit_step = jax.jit(jax.vmap(env.step, in_axes=(0, 0, 0, None)))
     jit_reset = jax.jit(jax.vmap(env.reset, in_axes=(0, None)))
-
-
-    print(f" HIIIIIIIIII! STEP {step_print}")
-    step_print += 1
-    
 
     def step_fn(carry, _):
         state, env_state, env_params, step_key, policy_state, critic_state, ep_len = carry
@@ -192,15 +174,9 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
                 self.param("tracked_value", lambda rng, shape: jnp.zeros(shape), (self.output_dim,)),
             )
 
-    print(f" HIIIIIIIIII! STEP {step_print}")
-    step_print += 1
-
     av_tracker = Tracker(1)
     policy_network = Policy(num_actions=env.num_actions)
     critic_network = Critic()
-
-    print(f" HIIIIIIIIII! STEP {step_print}")
-    step_print += 1
 
     # Initialization logic...
     init_policy_key, init_critic_key, init_reward_key, reset_key, key = jax.random.split(jax.random.key(seed), 5)
@@ -215,9 +191,6 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
     tracker_state = TrainState.create(apply_fn=jax.jit(av_tracker.apply),
                                      params=av_tracker.init(init_reward_key)["params"],
                                      tx=av_tracker_optimiser)
-
-    print(f" HIIIIIIIIII! STEP {step_print}")
-    step_print += 1
 
     def _calculate_gae(traj_batch, last_val, av_reward):
         def _get_advantages(gae_and_next_value, transition):
@@ -297,8 +270,6 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
         policy_state = policy_state.apply_gradients(grads=actor_grads)
         critic_state = critic_state.apply_gradients(grads=critic_grads)
         tracker_state = tracker_state.apply_gradients(grads=tracker_grads)
-
-        
         
         return ((actor_loss_v + critic_loss_v, av_reward, av_value), (optax.global_norm(actor_grads), optax.global_norm(critic_grads)), 
                 policy_state, critic_state, tracker_state, (value_loss, policy_loss, entropy, kl), observation, env_state, key, sample_counter)
@@ -316,15 +287,11 @@ def main(cfg: DictConfig) -> None:
         frac = 1.0 - (count // dict_config["experiment"]["n_update_epochs"]) / dict_config["experiment"]["n_training_episodes"]
         return dict_config["learning_rate"] * frac
 
-    print(" =============== MAIN 1 ============ ")
-
     # Optax chain handles the "Clipping" part of "SGD with clipping"
     opt = optax.chain(
         optax.clip_by_global_norm(0.5), # This is your clipping threshold
         optax.sgd(learning_rate=linear_schedule, momentum=0.9)
     )
-
-    print(" =============== MAIN 2 ============ ")
 
     run_actorcritic_experiment_sgd(
         optimiser=opt,
@@ -333,8 +300,6 @@ def main(cfg: DictConfig) -> None:
         **dict_config["experiment"],
         seed=dict_config["seed"],
     )
-
-    print(" =============== MAIN 3 ============ ")
 
 if __name__ == "__main__":
     main()
