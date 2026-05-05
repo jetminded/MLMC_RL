@@ -277,7 +277,7 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
     # Main training loop remains same...
     # [Rest of the training loop and wandb logging]
 
-@hydra.main(config_path=".", config_name="config_ampo.yaml", version_base="1.2")
+@hydra.main(config_path=".", config_name="config_jet.yaml", version_base="1.2")
 def main(cfg: DictConfig) -> None:
     dict_config = OmegaConf.to_container(cfg, resolve=True)
     wandb.init(entity=cfg.wandb.entity, project=cfg.wandb.project)
