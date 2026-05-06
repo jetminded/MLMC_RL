@@ -28,6 +28,9 @@ import os
 import json
 from datetime import datetime
 
+
+CLIP_FLAG = False
+
 class NavixGymnaxWrapper:
     def __init__(self, env_name):
         self._env = nx.make(env_name)
@@ -229,7 +232,10 @@ def run_actorcritic_experiment_sgd( # Renamed from mdpo
         value = value - av_value * av_vf_coeff
         
         # Keep the value clipping as it helps stability in SGD too
-        value_pred_clipped = traj_batch.value.squeeze(-1) + (value - traj_batch.value).clip(-clip_eps, clip_eps)
+        if CLIP_FLAG:
+            value_pred_clipped = traj_batch.value.squeeze(-1) + (value - traj_batch.value).clip(-clip_eps, clip_eps)
+        else:
+            value_pred_clipped = traj_batch.value.squeeze(-1) + (value - traj_batch.value)
         value_loss = jnp.maximum(jnp.square(value - targets), jnp.square(value_pred_clipped - targets)).mean()
 
         return vf_coeff * value_loss, (value_loss, )
@@ -357,10 +363,15 @@ def main(cfg: DictConfig) -> None:
         return dict_config["learning_rate"] * frac
 
     # Optax chain handles the "Clipping" part of "SGD with clipping"
-    opt = optax.chain(
-        optax.clip_by_global_norm(0.5), # This is your clipping threshold
-        optax.sgd(learning_rate=linear_schedule, momentum=0.9)
-    )
+    if CLIP_FLAG:
+        opt = optax.chain(
+            optax.clip_by_global_norm(0.5), # This is your clipping threshold
+            optax.sgd(learning_rate=linear_schedule, momentum=0.9)
+        )
+    else:
+        opt = optax.chain(
+            optax.sgd(learning_rate=linear_schedule, momentum=0.9)
+        )        
 
     run_actorcritic_experiment_sgd(
         optimiser=opt,
